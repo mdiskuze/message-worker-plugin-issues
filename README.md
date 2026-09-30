@@ -458,7 +458,14 @@ Kafka topics work like queues in the plugin: they sit in the connection tree, op
 
 ### Topics in the Tree
 
-A Kafka connection shows one category, **Topics**, with every topic and the number of records it currently holds (all partitions together). Kafka keeps records after they are consumed until retention removes them, so this number is the content of the topic, not a backlog, and large numbers are not highlighted. Right-click a topic for **Browse Topic**, **Send Message**, **Live Tail...**, **Create Topic...**, **Delete Topic** and **Purge Topic**.
+A Kafka connection shows **Topics** with every topic and the number of records it currently holds (all partitions together). Kafka keeps records after they are consumed until retention removes them, so this number is the content of the topic, not a backlog, and large numbers are not highlighted. Right-click a topic for **Browse Topic**, **Send Message**, **Live Tail...**, **Topic Details...**, **Copy Records to...**, **Create Topic...**, **Delete Topic** and **Purge Topic**.
+
+Below Topics there are two more categories. They stay collapsed and are loaded only when you open them, so a connection you only browse is not slowed down:
+
+- **Consumer Groups**: every consumer group of the cluster with its state and total lag, for example `billing (stable lag 42)`. Double-click a group to open it (see [Consumer Groups](#consumer-groups)).
+- **Schema Registry**: the subjects of the connection's Schema Registry, shown only when the connection has a registry URL. Double-click a subject to open it (see [Schema Registry Subjects](#schema-registry-subjects)).
+
+Right-click either category for **Refresh**. The tree search field filters groups and subjects as well.
 
 ### Browsing a Topic
 
@@ -479,6 +486,27 @@ The table columns change to **Offset**, **Key**, **Timestamp**, **Format**, **Pa
 
 Browsing never consumes: the plugin reads without a consumer group and commits nothing, so the applications on the topic are not affected. The filter field also searches in record keys.
 
+### Searching a Topic
+
+The filter field only looks at the records already loaded. To search the whole topic on the broker, like AKHQ does, click **Search** at the end of the read-position row. A search row opens:
+
+| Field | Matches |
+|-------|---------|
+| **Key** | the record key |
+| **Value** | the value as shown in Decoded (the JSON of a registry record). Binary values are searched as text fragments and as `0x` hex. |
+| **Header** | a header name (contains) and a header value |
+| **Until** | leaves out records newer than this time |
+| **Scan/partition** | how many records are read from each partition, starting at the read position (default 10000) |
+
+Each term can be **contains** or **not contains** (both ignore case) or **equals** (exact). Every filled term must match. Press Enter or **Search**. The header then shows how many records matched and how many were read, for example `3 matches in 12000 records scanned`. The read position and partition above still decide where the search starts: **Newest** searches the newest records, **Oldest** or **From time** search forward. A search stops after one minute and says so, narrow the read position or the scan then. **Clear** empties the terms, closing the row with **Search** returns to the normal browse.
+
+### Record Actions
+
+Right-click records in the browser:
+
+- **Export Selected...** and **Export All Loaded...** save records to a JSON file: partition, offset, timestamp, key, value (a JSON value stays JSON), headers, the registry subjects, and the value bytes as stored (Base64).
+- **Delete by Key (Tombstone)...** writes a record with the same key and an empty value into the same partition. On a compacted topic (`cleanup.policy=compact`) Kafka then removes every earlier record with that key the next time the log is compacted, not immediately. On other topics the plugin refuses it, because there a tombstone would remove nothing.
+
 ### Schema Registry (Avro and JSON Schema)
 
 Records written by applications that use the Confluent Schema Registry carry a schema id in front of the data. With a **Schema Registry URL** in the connection, the plugin loads that schema and shows the record as JSON:
@@ -497,9 +525,12 @@ For a Kafka connection the send dialog shows:
 - **Key format** and **Value format**: how the key and the body become the bytes of the record.
   - **Text**: the text in the chosen **Encoding**, like a JMS text or bytes message.
   - **Bytes (hex)**: the text is hex digits (spaces and line breaks are ignored), sent byte for byte. Use it for binary values.
-  - **Schema Registry**: the text is JSON, sent as Avro or JSON Schema with the latest schema of the chosen **subject**. The subject list comes from the registry, and `<topic>-value` / `<topic>-key` is filled in by default. JSON that does not fit the schema is refused before anything is sent, and the message names the field, e.g. `eventMetadata.eventId: missing required field`. The plugin never registers schemas.
+  - **Schema Registry**: the text is JSON, sent as Avro or JSON Schema with the latest schema of the chosen **subject**. The subject list comes from the registry, and `<topic>-value` / `<topic>-key` is filled in by default. JSON that does not fit the schema is refused before anything is sent, and the message names the field, e.g. `eventMetadata.eventId: missing required field`. Sending never registers a schema, that is done only in the Schema Registry view.
 - **Partition**: optional target partition. Empty lets Kafka choose (from the key, or spread when there is no key).
 - **Custom Properties / Headers**: one `key=value` per line, sent as Kafka record headers (UTF-8).
+- **Kafka: Timestamp and Batch** (collapsed):
+  - **Timestamp**: the record timestamp (`yyyy-MM-dd HH:mm[:ss]`, a date, or epoch milliseconds). Empty means now.
+  - **Batch**: every non-blank line of the body is sent as its own record, with the same format, headers and partition. With a **Key separator**, the text before its first occurrence on a line is that record's key, e.g. with `:` the line `id-7:{"a":1}` has key `id-7`. Lines without the separator use the **Key** field. Every line is checked first, so a line that does not fit (bad hex, JSON that does not match the schema) sends nothing and the error names the line. A batch holds up to 10000 records and is kept in the send history as one entry.
 
 The JMS-only fields (destination type, correlation ID, priority, persistence, reply-to, TTL, group ID) are hidden. **Resend** and **Send Similar Message** keep the key and headers of the record and pick the format that sends it unchanged: a registry record opens as JSON with its subject, a binary record opens as hex of its exact bytes. Templates keep the key (with variables), the partition, both formats and the subjects. The send history shows them in the detail and the history search also matches keys.
 
@@ -514,11 +545,45 @@ JMS message selectors have no Kafka equivalent, so the selector field is disable
 
 ### Topic Administration and Copying
 
-- **Create Topic...** asks for the name, the number of partitions and the replication factor (empty = broker default).
+- **Create Topic...** asks for the name, the number of partitions and the replication factor (empty = broker default). The collapsed **Advanced** group sets the cleanup policy (delete, compact, both), the retention and any other topic configuration as `name=value` lines.
 - **Purge Topic** deletes every record currently in the topic. This affects every consumer, not only the plugin, and the confirmation says so.
 - **Delete Topic** removes the topic with all its records.
 - **Copy to Topic...** (right-click selected records in the browser) re-produces the records into another topic with key, value and headers unchanged. The target partition follows the key.
-- Moving or deleting single records is not possible in Kafka, so **Move** and **Delete** are disabled for Kafka topics. Use **Purge Topic** to empty a topic.
+- **Copy Records to...** (right-click a topic in the tree) copies many records at once into a topic on the same or another Kafka connection: from the oldest, the newest, an offset or a time, one or all partitions, up to a number of records per partition. Keys, values and headers are copied byte for byte. **Keep partition numbers** puts every record into the partition with the same number (the target needs at least as many partitions), **Keep record timestamps** keeps the source times. Records written with a Schema Registry keep their schema id, so on another cluster the target registry must know the same ids.
+- Moving or deleting single records is not possible in Kafka, so **Move** and **Delete** are disabled for Kafka topics. Use **Purge Topic** to empty a topic, or **Delete by Key (Tombstone)** on a compacted topic.
+
+### Topic Details
+
+**Topic Details...** on a topic opens its page:
+
+- **Partitions**: leader, replicas, in-sync replicas, first and next offset, records and size on disk per partition, and a summary with the replication factor, the total size and the number of under-replicated partitions.
+- **Configuration**: the values set on the topic. **Show broker defaults** also lists what the topic inherits. **Edit...** (or a double-click) changes a value, **Add...** sets a new one as `name=value`, **Reset to Default** removes the selected topic values so the broker defaults apply again. Every change is confirmed and applies to the topic immediately. Hover a name for the broker's description.
+- **Consumer Groups**: the groups that committed offsets on the topic, with their lag on this topic. Double-click one to open it.
+- **Increase Partitions...** raises the partition count. Kafka cannot reduce it later, and records with a key may then land in another partition than before.
+
+### Consumer Groups
+
+Double-click a group in **Consumer Groups** (or in the Consumer Groups tab of Topic Details). The dialog shows the state, the coordinator, the partition assignor and the total lag, and two tabs:
+
+- **Offsets**: per topic and partition the committed offset, the end offset, the lag, and the client and host that own the partition.
+- **Members**: member id, client id, host, static instance id and assigned partitions.
+
+Actions:
+
+- **Reset Offsets...** moves the committed offsets of the selected partitions, of all partitions of one topic, or of the whole group to the **earliest** retained record, the **latest** (end), the first record **at a time**, a **specific offset**, or **shifted by** a number of records (negative = read again, positive = skip). Offsets are kept inside the retained range. Kafka only moves the offsets of a group without active members, so stop its consumers first, the plugin says so otherwise.
+- **Delete Topic Offsets...** removes the group's committed offsets of one topic, the group itself stays.
+- **Delete Group...** deletes the group with all its committed offsets. The records in the topics stay.
+
+### Schema Registry Subjects
+
+Double-click a subject in **Schema Registry**:
+
+- **Version** picks a version, the id, type and record name are shown next to it and the schema below.
+- **Compatibility** shows the subject's level or `(global default)`. Choose a level and **Apply** to set it on the subject, or choose `(global default)` and **Apply** to use the registry's default again.
+- **New Version...** opens the schema editor with the current version. **Check Compatibility** asks the registry whether the new schema is compatible with the latest version and shows its reasons when it is not. **Register** checks that the schema parses and registers it.
+- **Delete Version...** and **Delete Subject...** remove a version or the whole subject. Both are soft deletes unless **Delete permanently** is checked. Producers that use a deleted subject fail to send until it is registered again.
+
+Right-click the **Schema Registry** category for **New Subject...** (registers the first version of a new subject, `<topic>-value` of the selected topic is suggested), **Find Schema by ID...** (the schema behind the id at the start of a registry record, and which subjects and versions use it) and **Global Compatibility...**.
 
 ---
 
