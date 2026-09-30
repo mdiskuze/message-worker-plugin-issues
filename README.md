@@ -1,6 +1,6 @@
-# JMS Worker Plugin - User Guide
+# Message Worker Plugin - User Guide
 
-Welcome to the JMS Worker Plugin! This guide will help you get the most out of managing your JMS message queues directly from IntelliJ IDEA.
+Welcome to the Message Worker Plugin (called JMS Worker before version 1.5.0)! This guide will help you get the most out of managing your JMS message queues and Apache Kafka topics directly from IntelliJ IDEA.
 
 ## Table of Contents
 1. [Installation & Setup](#installation--setup)
@@ -10,10 +10,11 @@ Welcome to the JMS Worker Plugin! This guide will help you get the most out of m
 5. [Sending Messages](#sending-messages)
 6. [Message Templates](#message-templates)
 7. [Topics & Subscriptions](#topics--subscriptions)
-8. [Message History](#message-history)
-9. [Advanced Operations](#advanced-operations)
-10. [Tips & Tricks](#tips--tricks)
-11. [Troubleshooting](#troubleshooting)
+8. [Apache Kafka](#apache-kafka)
+9. [Message History](#message-history)
+10. [Advanced Operations](#advanced-operations)
+11. [Tips & Tricks](#tips--tricks)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -23,7 +24,7 @@ Welcome to the JMS Worker Plugin! This guide will help you get the most out of m
 
 1. Open IntelliJ IDEA
 2. Go to **Preferences/Settings** → **Plugins**
-3. Search for "JMS Worker"
+3. Search for "Message Worker"
 4. Click **Install** and restart IDE
 
 Or install manually:
@@ -34,7 +35,7 @@ Or install manually:
 
 ### Accessing the Plugin
 
-Once installed, you'll see a **JMS Worker** tool window at the bottom of your IDE. Click on it to activate.
+Once installed, you'll see a **Message Worker** tool window at the bottom of your IDE. Click on it to activate.
 
 ---
 
@@ -54,7 +55,7 @@ Once installed, you'll see a **JMS Worker** tool window at the bottom of your ID
 
 ### Step 2: Browse a Queue
 
-1. In the JMS Worker tool window, you'll see your connections in a tree
+1. In the Message Worker tool window, you'll see your connections in a tree
 2. **Click the arrow** to expand a connection (queues load on expand)
 3. Click on a queue to browse its messages
 4. Messages appear in the table on the right
@@ -91,12 +92,12 @@ Once installed, you'll see a **JMS Worker** tool window at the bottom of your ID
 - **Channel**: Channel name (usually "DEV.APP.SVRCONN")
 - **CCSID**: Character encoding (usually 819 for UTF-8)
 - **Authentication**: Choose from four modes:
-  - **None** — no credentials
-  - **Basic** — username + password
-  - **mTLS** — certificate-based only (keystore/truststore, no password)
-  - **Basic + mTLS** — both username/password and client certificate
+  - **None** - no credentials
+  - **Basic** - username + password
+  - **mTLS** - certificate-based only (keystore/truststore, no password)
+  - **Basic + mTLS** - both username/password and client certificate
 
-#### IBM MQ — mTLS (mutual TLS) setup
+#### IBM MQ - mTLS (mutual TLS) setup
 
 When **mTLS** or **Basic + mTLS** is selected, an **SSL / TLS** section appears:
 
@@ -105,7 +106,7 @@ When **mTLS** or **Basic + mTLS** is selected, an **SSL / TLS** section appears:
 | **Keystore** | Path to `.p12` or `.jks` file containing the client certificate and private key |
 | **Keystore type** | `PKCS12` or `JKS` |
 | **Keystore password** | Password for the keystore file |
-| **Truststore** | Path to truststore file (optional — leave empty to use the JVM default trust store) |
+| **Truststore** | Path to truststore file (optional - leave empty to use the JVM default trust store) |
 | **Truststore type** | `PKCS12` or `JKS` |
 | **Truststore password** | Password for the truststore file |
 | **Cipher suite** | TLS cipher suite name (see below) |
@@ -123,11 +124,20 @@ Typical Spring Boot setup (`use-i-b-m-cipher-mappings: false`, cipher `*TLS13ORH
 4. **Uncheck** "Use IBM cipher mappings"
 5. Leave Truststore empty (unless your broker uses a self-signed or private CA certificate)
 
+#### Apache Kafka
+- **Bootstrap servers**: `host:port`, comma-separated for several brokers (e.g. `broker1:9092,broker2:9092`). Replaces Host/Port.
+- **Security**: protocol `PLAINTEXT`, `SSL`, `SASL PLAINTEXT` or `SASL SSL`.
+  - **SASL**: mechanism `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512`, plus username and password.
+  - **SSL / SASL SSL**: the SSL / TLS section appears. Set the truststore when the broker certificate is not trusted by the JVM default trust store. Add a client keystore only for mutual TLS.
+- **Kafka Settings**: *Show internal topics* lists `__consumer_offsets`, `_schemas`, `_confluent-*` and similar topics, which are hidden by default.
+- **Schema Registry URL** (in Kafka Settings, optional): the address of a Confluent Schema Registry, e.g. `http://localhost:8081`. With it, Avro and JSON Schema records are shown and sent as JSON. Username and password are only needed for a registry with basic authentication. An `https` registry uses the truststore and keystore of the SSL / TLS section. **Test Connection** checks the registry too.
+- See [Apache Kafka](#apache-kafka) for how Kafka topics behave in the plugin.
+
 ### Connect and Disconnect
 
 - **Expanding** a connection node (click the arrow) connects if not yet connected and loads the queue list.
 - **Double-clicking** a disconnected connection node reconnects and loads queues immediately.
-- **Right-click → Disconnect** explicitly disconnects. Once disconnected, the plugin will not reconnect in the background — the "Disconnected" state is sticky until you explicitly reconnect.
+- **Right-click → Disconnect** explicitly disconnects. Once disconnected, the plugin will not reconnect in the background - the "Disconnected" state is sticky until you explicitly reconnect.
 - The connection node collapses on disconnect and shows a "Loading..." placeholder so the expand arrow stays visible for the next connect.
 
 ### Lazy Loading
@@ -148,29 +158,29 @@ Before saving, always test your connection:
 
 ### Duplicating a Connection
 
-In **Settings → Tools → JMS Worker**, select an existing connection in the list and click the **Copy** icon in the toolbar above the list. A new-connection dialog opens with every field — including credentials, keystore paths, and SSL settings — pre-filled from the source. The name is set to `<original> (copy)` (or `(copy 2)`, `(copy 3)`, … if a copy already exists) so you can save immediately. Tweak whatever differs (typically host or environment-specific values) and hit OK. Useful for cloning a dev connection into a UAT one without retyping everything.
+In **Settings → Tools → Message Worker**, select an existing connection in the list and click the **Copy** icon in the toolbar above the list. A new-connection dialog opens with every field - including credentials, keystore paths, and SSL settings - pre-filled from the source. The name is set to `<original> (copy)` (or `(copy 2)`, `(copy 3)`, … if a copy already exists) so you can save immediately. Tweak whatever differs (typically host or environment-specific values) and hit OK. Useful for cloning a dev connection into a UAT one without retyping everything.
 
 ### Context Menu Actions
 
 Right-click on a **connection** for:
-- **Refresh Queues** — Reload queue list
-- **Edit Connection** — Modify settings
-- **Create Queue** — Create new queue (Artemis or ActiveMQ 5 + Jolokia)
-- **Create Topic** — Create new topic (Artemis or ActiveMQ 5 + Jolokia)
-- **Send Message to...** — Open send dialog
-- **Connect/Disconnect** — Toggle connection state
-- **Delete Connection** — Remove from settings
+- **Refresh Queues** - Reload queue list
+- **Edit Connection** - Modify settings
+- **Create Queue** - Create new queue (Artemis or ActiveMQ 5 + Jolokia)
+- **Create Topic** - Create new topic (Artemis or ActiveMQ 5 + Jolokia)
+- **Send Message to...** - Open send dialog
+- **Connect/Disconnect** - Toggle connection state
+- **Delete Connection** - Remove from settings
 
 Right-click on a **queue** for:
-- **Browse Queue** — Load messages
-- **Send Message** — Send to this queue
-- **Delete Queue** — Remove queue (Artemis or ActiveMQ 5 + Jolokia)
-- **Purge Queue** — Delete all messages
+- **Browse Queue** - Load messages
+- **Send Message** - Send to this queue
+- **Delete Queue** - Remove queue (Artemis or ActiveMQ 5 + Jolokia)
+- **Purge Queue** - Delete all messages
 
 Right-click on a **topic** for:
-- **Subscribe to Topic** — Opens subscribe dialog with pre-filled topic name
-- **Publish to Topic** — Opens send dialog in topic mode
-- **Delete Topic** — Remove topic (Artemis or ActiveMQ 5 + Jolokia)
+- **Subscribe to Topic** - Opens subscribe dialog with pre-filled topic name
+- **Publish to Topic** - Opens send dialog in topic mode
+- **Delete Topic** - Remove topic (Artemis or ActiveMQ 5 + Jolokia)
 
 ---
 
@@ -330,7 +340,7 @@ The **Templates** tab lets you save, organize, and reuse frequently sent message
 2. Click **+** (New Template) in the toolbar
 3. Fill in the template:
    - **Name**: Descriptive name shown in the list
-   - **Connection** and **Destination**: Optional — a template without these is portable across environments
+   - **Connection** and **Destination**: Optional - a template without these is portable across environments
    - **Message body**: Can contain variables (see below)
    - Message type, priority, TTL, correlation ID, and custom properties are all saved
 4. Click **Save**
@@ -339,7 +349,7 @@ The **Templates** tab lets you save, organize, and reuse frequently sent message
 
 1. In the Templates tab, double-click a template (or right-click → **Use**)
 2. If the template has a connection and destination bound, the Send Message dialog opens pre-filled and ready to send
-3. If the template is missing a connection or destination, a small target dialog appears asking only for the missing values — fill them in and continue
+3. If the template is missing a connection or destination, a small target dialog appears asking only for the missing values - fill them in and continue
 
 ### Variable Substitution
 
@@ -349,7 +359,7 @@ Template bodies support built-in and custom variables:
 |----------|-------|
 | `{{uuid}}` | Random UUID generated at send time |
 | `{{timestamp}}` | Current ISO-8601 timestamp |
-| `{{myVar}}` | Custom variable — prompted at send time |
+| `{{myVar}}` | Custom variable - prompted at send time |
 
 Example body:
 ```json
@@ -360,11 +370,11 @@ Custom variables (`{{customerId}}` in the example) are collected in the Variable
 ### Managing Templates
 
 Right-click a template for:
-- **Use** — open in Send Message dialog
-- **Edit** — modify the template
-- **Duplicate** — copy for quick variation
-- **Delete** — remove
-- **Mark as Favorite** — pin to the top of the list (shown with star icon)
+- **Use** - open in Send Message dialog
+- **Edit** - modify the template
+- **Duplicate** - copy for quick variation
+- **Delete** - remove
+- **Mark as Favorite** - pin to the top of the list (shown with star icon)
 
 ---
 
@@ -395,7 +405,7 @@ Active subscriptions are visible in two places:
 - **Connection tree**: Topics with active subscriptions show a green **●** indicator
 - **Topics tab**: Subscription list shows status icons (● active, ○ stopped, ✖ error)
 
-These indicators synchronize automatically — stopping or removing a subscription from the Topics tab immediately updates the tree, and vice versa.
+These indicators synchronize automatically - stopping or removing a subscription from the Topics tab immediately updates the tree, and vice versa.
 
 ### Viewing Live Messages
 
@@ -409,7 +419,7 @@ These indicators synchronize automatically — stopping or removing a subscripti
 When the Topics tab is not active (you're on Browser or History), incoming messages are counted as unread:
 - The tab title changes from **Topics** to **Topics (5)** showing the unread count
 - The badge resets automatically when you switch to the Topics tab
-- The JMS Worker tool window also activates to draw your attention on the first unread message
+- The Message Worker tool window also activates to draw your attention on the first unread message
 
 ### Publishing to a Topic
 
@@ -426,10 +436,10 @@ When the Topics tab is not active (you're on Browser or History), incoming messa
 ### Managing Subscriptions
 
 Right-click on a subscription in the Topics tab for:
-- **Stop Listening** — Pause the subscription (buffered messages kept)
-- **Clear Messages** — Remove buffered messages
-- **Remove Subscription** — Stop and remove entirely
-- **Remove Durable Subscription from Broker** — Delete the durable subscription on the broker (pending messages lost)
+- **Stop Listening** - Pause the subscription (buffered messages kept)
+- **Clear Messages** - Remove buffered messages
+- **Remove Subscription** - Stop and remove entirely
+- **Remove Durable Subscription from Broker** - Delete the durable subscription on the broker (pending messages lost)
 
 ### Topic Management
 
@@ -439,6 +449,76 @@ Right-click on a subscription in the Topics tab for:
 - **ActiveMQ 5 + Jolokia**:
   - **Create Topic**: Right-click on connection → Create Topic
   - **Delete Topic**: Right-click on topic → Delete Topic
+
+---
+
+## Apache Kafka
+
+Kafka topics work like queues in the plugin: they sit in the connection tree, open in the same browser, and use the same send dialog, templates and history. The differences below come from how Kafka works.
+
+### Topics in the Tree
+
+A Kafka connection shows one category, **Topics**, with every topic and the number of records it currently holds (all partitions together). Kafka keeps records after they are consumed until retention removes them, so this number is the content of the topic, not a backlog, and large numbers are not highlighted. Right-click a topic for **Browse Topic**, **Send Message**, **Live Tail...**, **Create Topic...**, **Delete Topic** and **Purge Topic**.
+
+### Browsing a Topic
+
+When a Kafka topic is selected, a second row above the table sets where reading starts:
+
+| Read | What you get |
+|------|--------------|
+| **Newest** | The latest records (default) |
+| **Oldest** | The earliest records still in the topic |
+| **From offset** | Records from the given offset on, in every selected partition. Press Enter after typing the offset. |
+| **From time** | Records written at or after the given time. Accepts `yyyy-MM-dd HH:mm`, seconds and milliseconds optional, a date alone, or epoch milliseconds. Press Enter to apply. |
+
+**Partition** limits reading to one partition. Leave it empty for all partitions. **Load more** and **Auto** refresh work as for queues.
+
+The table columns change to **Offset**, **Key**, **Timestamp**, **Format**, **Partition** and **Preview**. The detail panel shows the record (topic, partition, offset, key, timestamp, value size in bytes) and its headers. Values that are not UTF-8 text are shown as BYTES, use the **Bytes** view for the hex dump. A record with a null value (tombstone) is marked as such.
+
+**Decoded**, **Raw** and **Bytes** choose how you look at a value. **Decoded** shows the text, or the JSON of a Schema Registry record. **Raw** (Base64) and **Bytes** (hex dump) always show the value exactly as it is stored in the topic, also for records shown as JSON.
+
+Browsing never consumes: the plugin reads without a consumer group and commits nothing, so the applications on the topic are not affected. The filter field also searches in record keys.
+
+### Schema Registry (Avro and JSON Schema)
+
+Records written by applications that use the Confluent Schema Registry carry a schema id in front of the data. With a **Schema Registry URL** in the connection, the plugin loads that schema and shows the record as JSON:
+
+- The **Format** column says **AVRO** or **JSON**, and the detail panel shows the schema id, the record name and the subject.
+- Keys registered in the Schema Registry are shown as JSON too.
+- Timestamps and dates are shown as ISO-8601 text (`2026-09-30T10:15:30.123456Z`, `2026-09-30`), decimals as numbers, bytes as Base64, and optional fields without the Avro type wrapper, the way AKHQ shows them.
+- Without a registry URL such records stay BYTES, and the **Decoded** view starts with a note that they are registry records, which schema id they use and where to set the registry URL.
+- Protobuf records are recognised and shown as bytes.
+
+### Sending Records
+
+For a Kafka connection the send dialog shows:
+
+- **Key**: the record key. Empty means no key. Records with the same key always go to the same partition.
+- **Key format** and **Value format**: how the key and the body become the bytes of the record.
+  - **Text**: the text in the chosen **Encoding**, like a JMS text or bytes message.
+  - **Bytes (hex)**: the text is hex digits (spaces and line breaks are ignored), sent byte for byte. Use it for binary values.
+  - **Schema Registry**: the text is JSON, sent as Avro or JSON Schema with the latest schema of the chosen **subject**. The subject list comes from the registry, and `<topic>-value` / `<topic>-key` is filled in by default. JSON that does not fit the schema is refused before anything is sent, and the message names the field, e.g. `eventMetadata.eventId: missing required field`. The plugin never registers schemas.
+- **Partition**: optional target partition. Empty lets Kafka choose (from the key, or spread when there is no key).
+- **Custom Properties / Headers**: one `key=value` per line, sent as Kafka record headers (UTF-8).
+
+The JMS-only fields (destination type, correlation ID, priority, persistence, reply-to, TTL, group ID) are hidden. **Resend** and **Send Similar Message** keep the key and headers of the record and pick the format that sends it unchanged: a registry record opens as JSON with its subject, a binary record opens as hex of its exact bytes. Templates keep the key (with variables), the partition, both formats and the subjects. The send history shows them in the detail and the history search also matches keys.
+
+### Live Tail
+
+**Live Tail...** (or **Subscribe** in the Topics tab) follows new records:
+
+- Without **Consumer group** the plugin reads every partition from its current end. Nothing is stored on the broker.
+- With **Consumer group** the plugin reads as the given group id and commits offsets, so the next tail with the same group id continues where the previous one stopped. **Remove Subscription** only stops it in the plugin and keeps the group. Right-click it and choose **Delete Consumer Group from Broker** to delete the group and its committed offsets (records in the topic stay).
+
+JMS message selectors have no Kafka equivalent, so the selector field is disabled.
+
+### Topic Administration and Copying
+
+- **Create Topic...** asks for the name, the number of partitions and the replication factor (empty = broker default).
+- **Purge Topic** deletes every record currently in the topic. This affects every consumer, not only the plugin, and the confirmation says so.
+- **Delete Topic** removes the topic with all its records.
+- **Copy to Topic...** (right-click selected records in the browser) re-produces the records into another topic with key, value and headers unchanged. The target partition follows the key.
+- Moving or deleting single records is not possible in Kafka, so **Move** and **Delete** are disabled for Kafka topics. Use **Purge Topic** to empty a topic.
 
 ---
 
@@ -529,10 +609,10 @@ Requires Jolokia enabled:
 1. Select one or more messages (Ctrl+click for multi-select)
 2. Right-click → **Delete Messages**, or press the **Delete** key
 3. Confirm deletion
-4. The selected message(s) are permanently removed and the queue view refreshes; the status bar reports how many were deleted, not found, or failed
+4. The selected message(s) are permanently removed and the queue view refreshes. The status bar reports how many were deleted, not found, or failed
 5. ⚠️ Cannot be undone!
 
-Supported on IBM MQ and Apache Artemis. (On ActiveMQ Classic, single-message delete is not available — use Purge Queue instead.)
+Supported on IBM MQ and Apache Artemis. (On ActiveMQ Classic, single-message delete is not available - use Purge Queue instead.)
 
 ### Purging Queues
 
@@ -579,7 +659,7 @@ Use descriptive labels:
 
 Use the **Templates** tab for messages you send repeatedly:
 - Save with variable placeholders (`{{uuid}}`, `{{timestamp}}`, custom vars) to get fresh values on every send
-- Leave connection/destination unbound for payloads you use across environments — the target dialog asks for them at send time
+- Leave connection/destination unbound for payloads you use across environments - the target dialog asks for them at send time
 - Mark frequently used templates as Favorites so they stay at the top of the list
 
 ### Performance Tips
@@ -597,29 +677,29 @@ Each queue in the connection tree shows its current depth as `(N)` next to the n
 | State | Icon | Name + count | When |
 |---|---|---|---|
 | Empty | default queue | grey `(0)` | Queue has no messages. |
-| Normal | default queue | regular `(N)` | 1–100 messages — normal operation. |
-| Backlog | information | bold orange `(N)` | More than 100 messages — possible backlog, check that consumers are running. |
+| Normal | default queue | regular `(N)` | 1-100 messages - normal operation. |
+| Backlog | information | bold orange `(N)` | More than 100 messages - possible backlog, check that consumers are running. |
 | Dead-letter / error | warning | bold red `(N)` | Queue name contains `DLQ`, `dead`, or `error` (case-insensitive) AND it has messages. These were rejected by their original destination and need investigation. |
-| Depth unknown | error | italic grey **name** + `(?)` | The plugin couldn't read this queue's depth — the broker rejected the depth request (typically `MQRC_NOT_AUTHORIZED` 2035 on IBM MQ). Browse / send / subscribe still work if you have those rights. To restore the depth badge, ask your MQ admin to grant `+dsp` (and `+inq`) on this queue. |
+| Depth unknown | error | italic grey **name** + `(?)` | The plugin couldn't read this queue's depth - the broker rejected the depth request (typically `MQRC_NOT_AUTHORIZED` 2035 on IBM MQ). Browse / send / subscribe still work if you have those rights. To restore the depth badge, ask your MQ admin to grant `+dsp` (and `+inq`) on this queue. |
 
 ### Column widths persist across restarts
 
-Resize a column in any data table — queue browser, message history, templates, live topic messages — and the new width is saved automatically. The next time you open the IDE the table picks up where you left off. Each table remembers its own widths independently.
+Resize a column in any data table - queue browser, message history, templates, live topic messages - and the new width is saved automatically. The next time you open the IDE the table picks up where you left off. Each table remembers its own widths independently.
 
 ### Performance & Polling Settings (v1.4.0+)
 
-A new section in **Settings → Tools → JMS Worker → Performance** controls the background polling and timeout behavior. Defaults are tuned for daily use; tweak only if you see broker-side log noise or want a snappier UI.
+A new section in **Settings → Tools → Message Worker → Performance** controls the background polling and timeout behavior. Defaults are tuned for daily use. Tweak only if you see broker-side log noise or want a snappier UI.
 
 | Setting | Default | What it does |
 |---|---|---|
 | Auto-refresh queue counts in tree | on | Master switch for the background queue depth poller. Turning it off stops all "(N)" badge updates in the tree but does not affect Browse / Send / Subscribe. |
-| Refresh interval | 5 s | How often the poller runs. The poller hits only **expanded** connection nodes — collapse a connection to silence its polling without disabling it globally. |
+| Refresh interval | 5 s | How often the poller runs. The poller hits only **expanded** connection nodes - collapse a connection to silence its polling without disabling it globally. |
 | Topic message coalescing window | 150 ms | Live topic messages are batched per window before being pushed to the UI. Higher values keep the UI smoother under heavy throughput at the cost of slightly delayed visibility. |
 | Connection close timeout | 3 s | Per-connection wall-clock cap when shutting the IDE down or clicking Disconnect / Disconnect All. Prevents a hung broker from stalling the UI. |
 | Jolokia HTTP connect timeout | 5 s | Applies to Apache Artemis and ActiveMQ Classic management calls. |
 | Jolokia HTTP read timeout | 5 s | Applies to Apache Artemis and ActiveMQ Classic management calls. |
 
-**IBM MQ note:** if your channel rejects queue depth probes with `MQRC_NOT_AUTHORIZED` (2035), the plugin pauses further probes — no more per-tick log spam in the broker. The pause is per-queue when only individual queues are inaccessible (other queues on the same connection keep updating); it widens to the whole connection only when the channel itself has no admin access. Either form clears the next time you reconnect. If you want depth polling permanently silent for a specific environment, turn the global "Auto-refresh queue counts" off in Settings.
+**IBM MQ note:** if your channel rejects queue depth probes with `MQRC_NOT_AUTHORIZED` (2035), the plugin pauses further probes - no more per-tick log spam in the broker. The pause is per-queue when only individual queues are inaccessible (other queues on the same connection keep updating). It widens to the whole connection only when the channel itself has no admin access. Either form clears the next time you reconnect. If you want depth polling permanently silent for a specific environment, turn the global "Auto-refresh queue counts" off in Settings.
 
 **IBM MQ depths showing as zero or missing?** The batched wildcard depth call needs **`+dsp`** (display) authority on each queue, in addition to the usual `+inq`. Without `+dsp`, the broker silently drops queues from the response. Ask your MQ admin to grant:
 
@@ -627,7 +707,7 @@ A new section in **Settings → Tools → JMS Worker → Performance** controls 
 setmqaut -m <QM> -t queue -n 'YOUR.PREFIX.**' -p <user> +dsp
 ```
 
-The plugin falls back to a per-queue lookup for queues missing from the batched response, which works with just `+inq` but is one round-trip per queue — slower for big queue lists.
+The plugin falls back to a per-queue lookup for queues missing from the batched response, which works with just `+inq` but is one round-trip per queue - slower for big queue lists.
 
 ### How Credentials Are Stored
 
@@ -694,7 +774,7 @@ Color-code with labels to avoid mistakes!
 - Try Refresh Queues from context menu for immediate update
 
 **"IBM MQ queues show 0 messages (mTLS / app-only channel)"**
-- The plugin tries the fast PCF admin path first; if that channel does not have access to `SYSTEM.ADMIN.COMMAND.QUEUE`, it automatically falls back to a direct `MQOO_INQUIRE` open on each queue
+- The plugin tries the fast PCF admin path first. If that channel does not have access to `SYSTEM.ADMIN.COMMAND.QUEUE`, it automatically falls back to a direct `MQOO_INQUIRE` open on each queue
 - The fallback requires only BROWSE and INQUIRE rights on the queues, no PCF admin rights
 - If counts still show 0, confirm the JMS user has at least BROWSE+INQUIRE on those queues
 
@@ -752,42 +832,55 @@ Color-code with labels to avoid mistakes!
 
 ---
 
+## What's New in v1.5.0
+
+- **New name**: JMS Worker is now Message Worker. Your connections, passwords, history, templates and settings are kept.
+- **Apache Kafka support**: Kafka connections next to Artemis, ActiveMQ Classic and IBM MQ. Browse topics from the newest or oldest record, from an offset or from a point in time, per partition, without consuming. Send records with key, headers and partition, follow topics live, create, purge, delete and copy. PLAINTEXT, SSL / mutual TLS, SASL PLAIN and SCRAM. See [Apache Kafka](#apache-kafka).
+- **Schema Registry**: Avro and JSON Schema records are shown and sent as JSON. See [Schema Registry](#schema-registry-avro-and-json-schema).
+- **Binary Kafka values in both directions**: send a key or value as hex, byte for byte, and see every value as stored in the Raw and Bytes views.
+- **Fixed**: the preview of a binary message shows its size in bytes (it showed the length of its Base64 text).
+- **Fixed**: closing the IDE no longer reports a memory leak in the plugin.
+- **Fixed**: stopping a topic subscription now really stops receiving messages.
+- **Fixed**: saving or editing a connection with a password no longer triggers an IDE error report.
+- **Fixed**: Copy to Queue accepts a destination typed by hand.
+- **Fixed**: a message deleted right after it was sent no longer reappears in the browser.
+
 ## What's New in v1.4.3
 
-- **Maintenance release**: removes the internal IntelliJ Platform API flagged by JetBrains Marketplace verification (the plugin version is now injected at build time instead of read from a platform API). No functional changes — includes the v1.4.1 message-delete fix below.
+- **Maintenance release**: removes the internal IntelliJ Platform API flagged by JetBrains Marketplace verification (the plugin version is now injected at build time instead of read from a platform API). No functional changes - includes the v1.4.1 message-delete fix below.
 
 ## What's New in v1.4.2
 
-- **Maintenance release**: internal compatibility cleanup for current IntelliJ Platform APIs (flagged by JetBrains Marketplace verification). No functional changes — includes the v1.4.1 message-delete fix below.
+- **Maintenance release**: internal compatibility cleanup for current IntelliJ Platform APIs (flagged by JetBrains Marketplace verification). No functional changes - includes the v1.4.1 message-delete fix below.
 
 ## What's New in v1.4.1
 
-- **Fixed: deleting a message now works**. Selecting a message in the queue browser and choosing Delete (toolbar, right-click → Delete Messages, or the Delete key) previously did nothing — no error, the message stayed. Delete now permanently removes the selected message(s) on IBM MQ and Apache Artemis, refreshes the queue, and tells you in the status bar how many were deleted, not found, or failed. See "Deleting Messages" above. (Not available on ActiveMQ Classic — use Purge Queue there.)
+- **Fixed: deleting a message now works**. Selecting a message in the queue browser and choosing Delete (toolbar, right-click → Delete Messages, or the Delete key) previously did nothing - no error, the message stayed. Delete now permanently removes the selected message(s) on IBM MQ and Apache Artemis, refreshes the queue, and tells you in the status bar how many were deleted, not found, or failed. See "Deleting Messages" above. (Not available on ActiveMQ Classic - use Purge Queue there.)
 
 ## What's New in v1.4.0
 
 - **Editor and tab-switch responsiveness**: the IDE no longer slows down while a connection is active in the background.
 - **Batched queue depth refresh**: the tree's queue counts now refresh with a single broker call per connection per tick (previously one call per queue). Default refresh interval bumped from 2 s to 5 s.
 - **Polls only what you can see**: collapsing a connection in the tree silences its background polling without disabling the global setting.
-- **In-place tree updates**: refresh redraws only the queues whose count actually changed — the tree no longer flickers or collapses during refresh.
-- **Topic message coalescing**: live topic messages are batched into a small window before reaching the UI; high-throughput topics no longer freeze the IDE.
-- **Fast IDE shutdown and Disconnect**: closing connections is bounded by a hard timeout. A hung or unreachable broker can no longer stall IDE exit; per-connection Disconnect over VPN that previously took 25–30 s is now sub-second.
-- **IBM MQ — broker-side log flood fixed**: when a depth probe is rejected with `MQRC_NOT_AUTHORIZED` (2035), the plugin pauses probes — per-queue when only individual queues are inaccessible (other queues on the same connection keep updating), connection-wide only when the channel itself has no admin access. Cooldown clears on the next reconnect.
-- **IBM MQ — mTLS connection setup unified**: removes a class of issues where background admin requests appeared to the broker as a different identity than the one configured by the user.
+- **In-place tree updates**: refresh redraws only the queues whose count actually changed - the tree no longer flickers or collapses during refresh.
+- **Topic message coalescing**: live topic messages are batched into a small window before reaching the UI. High-throughput topics no longer freeze the IDE.
+- **Fast IDE shutdown and Disconnect**: closing connections is bounded by a hard timeout. A hung or unreachable broker can no longer stall IDE exit. Per-connection Disconnect over VPN that previously took 25-30 s is now sub-second.
+- **IBM MQ - broker-side log flood fixed**: when a depth probe is rejected with `MQRC_NOT_AUTHORIZED` (2035), the plugin pauses probes - per-queue when only individual queues are inaccessible (other queues on the same connection keep updating), connection-wide only when the channel itself has no admin access. Cooldown clears on the next reconnect.
+- **IBM MQ - mTLS connection setup unified**: removes a class of issues where background admin requests appeared to the broker as a different identity than the one configured by the user.
 - **Security**: passwords (connection, keystore, truststore) are stored exclusively in the IDE credential store. A one-time migration scrubs any plaintext that older versions could leave in the settings file. See "How Credentials Are Stored" above.
-- **New Performance settings**: Tools → JMS Worker → Performance lets you tune refresh interval, coalesce window, and connection/HTTP timeouts.
+- **New Performance settings**: Tools → Message Worker → Performance lets you tune refresh interval, coalesce window, and connection/HTTP timeouts.
 - **Queue tree now communicates state**: each queue's icon, name color, count color, and hover tooltip jointly tell you whether it's empty, normal, backlogged, a dead-letter queue with messages waiting, or whether the broker has refused to disclose its depth. See "Reading the Queue Tree" above.
 - **Column widths are remembered across restarts**: once you resize a column in any data table (browser / history / templates / topic messages) the new width persists.
 - **Report a Problem**: a new action in the tool window toolbar (next to Settings) and every error notification opens a pre-filled GitHub issue page in your browser. See "Reporting a Problem" below.
-- **Duplicate Connection** in plugin settings: clones an existing connection (every field, including credentials and keystore paths) into a fresh dialog with `(copy)` appended to the name — handy for spinning up a near-identical environment without retyping host, port, channel, etc.
+- **Duplicate Connection** in plugin settings: clones an existing connection (every field, including credentials and keystore paths) into a fresh dialog with `(copy)` appended to the name - handy for spinning up a near-identical environment without retyping host, port, channel, etc.
 
 ## What's New in v1.3.0
 
 - **Disconnect is now truly final**: After clicking Disconnect, background polling and queue count refresh can no longer silently re-establish the connection. The Disconnected state is sticky until you explicitly reconnect.
 - **Double-click to reconnect**: Double-clicking a disconnected connection node now reconnects and loads queues, matching the initial-connect behaviour.
-- **Right-click no longer triggers browse**: Right-clicking a queue or topic only updates the selection context for the context menu — it no longer switches to the Browser tab or triggers a queue browse.
+- **Right-click no longer triggers browse**: Right-clicking a queue or topic only updates the selection context for the context menu - it no longer switches to the Browser tab or triggers a queue browse.
 - **Clean tree reset on disconnect**: The connection node collapses and resets to a "Loading..." placeholder on disconnect so the expand arrow stays visible and reconnect always works on the first try.
-- **Failed queue load retries**: A node stuck on "Error: ..." no longer blocks future load attempts — the next expand triggers a fresh retry.
+- **Failed queue load retries**: A node stuck on "Error: ..." no longer blocks future load attempts - the next expand triggers a fresh retry.
 - **IBM MQ queue counts on mTLS and app-only channels**: Channels that do not have PCF admin access now fall back to a direct INQUIRE open, which requires only per-queue BROWSE+INQUIRE rights.
 
 ## What's New in v1.2.0 / v1.2.1
@@ -797,7 +890,7 @@ Color-code with labels to avoid mistakes!
 - **Fixed**: Sending to a sorted paginated queue no longer resets the loaded range or makes new messages disappear.
 - **Fixed**: Newly sent messages keep a valid Message ID in the browser via broker send receipts.
 - **Fixed**: Artemis move message and topic publish indefinite block.
-- **Improved**: Reduced IDE freeze risk — tree search uses cached data, History reads moved off EDT, topic refresh throttled.
+- **Improved**: Reduced IDE freeze risk - tree search uses cached data, History reads moved off EDT, topic refresh throttled.
 
 ## What's New in v1.1.0
 
@@ -830,14 +923,14 @@ Color-code with labels to avoid mistakes!
 Two ways to file an issue without leaving the IDE:
 
 1. **Tool window toolbar** → "Report a Problem" (globe icon, next to Settings).
-2. **From an error balloon** — every connection-error notification has a "Report this" button that pre-fills the failing connection and error message.
+2. **From an error balloon** - every connection-error notification has a "Report this" button that pre-fills the failing connection and error message.
 
-Both open the same dialog where you fill in title, description (Markdown is supported), and an optional contact. Submitting opens a pre-filled GitHub "New Issue" page in your default browser. You sign in to GitHub with your normal browser session to post the issue — the plugin itself does not call any API and does not store any GitHub credentials.
+Both open the same dialog where you fill in title, description (Markdown is supported), and an optional contact. Submitting opens a pre-filled GitHub "New Issue" page in your default browser. You sign in to GitHub with your normal browser session to post the issue - the plugin itself does not call any API and does not store any GitHub credentials.
 
 The dialog has an "Include diagnostics" checkbox (on by default) that appends a metadata block to the issue body containing plugin and IDE version, JVM, OS, and how many connections of each type are configured. **Connection names, hosts, and credentials are never included**. There is also a direct link to the issues page if you'd rather skip the form and write the issue manually.
 
 ### Online
-- **GitHub Issues**: <https://github.com/mdiskuze/jms-worker-plugin-issues/issues> — see also the in-IDE "Report a Problem" action above.
+- **GitHub Issues**: <https://github.com/mdiskuze/message-worker-plugin-issues/issues> - see also the in-IDE "Report a Problem" action above.
 - **Changelog**: Version history
 
 ---
