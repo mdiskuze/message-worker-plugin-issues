@@ -130,6 +130,7 @@ Typical Spring Boot setup (`use-i-b-m-cipher-mappings: false`, cipher `*TLS13ORH
   - **SASL**: mechanism `PLAIN`, `SCRAM-SHA-256` or `SCRAM-SHA-512`, plus username and password.
   - **SSL / SASL SSL**: the SSL / TLS section appears. Set the truststore when the broker certificate is not trusted by the JVM default trust store. Add a client keystore only for mutual TLS.
 - **Kafka Settings**: *Show internal topics* lists `__consumer_offsets`, `_schemas`, `_confluent-*` and similar topics, which are hidden by default.
+- **New record format** (in Kafka Settings): the key and value format the send dialog starts with. *Like the records in the topic* (default) encodes a new record the way the topic's records already are, see [Sending Records](#sending-records). *Schema Registry when the `<topic>-key` / `<topic>-value` subject exists* switches each part whose subject is registered. *Always text* leaves both on Text.
 - **Schema Registry URL** (in Kafka Settings, optional): the address of a Confluent Schema Registry, e.g. `http://localhost:8081`. With it, Avro and JSON Schema records are shown and sent as JSON. Username and password are only needed for a registry with basic authentication. An `https` registry uses the truststore and keystore of the SSL / TLS section. **Test Connection** checks the registry too.
 - See [Apache Kafka](#apache-kafka) for how Kafka topics behave in the plugin.
 
@@ -245,8 +246,11 @@ Click any message to see the **split detail panel**:
 
 **Left side - Body:**
 - Syntax highlighted (JSON/XML auto-detected)
-- Format buttons: JSON | XML
-- Copy button copies **formatted** content
+- Icon buttons above the body: Copy (copies the **formatted** content), Plain text, JSON, XML
+- **Decoded**, **Raw** and **Bytes** switch the view, the active one is shown pressed
+- The arrow keys keep moving through the message list while the detail follows the selection, and refreshing the list (also by auto refresh) keeps the selected messages
+
+A message you send blinks green in the list of its queue or topic, so you see what was added.
 
 **Right side - Headers & Properties:**
 - Message ID, Correlation ID, Timestamp
@@ -522,7 +526,7 @@ Records written by applications that use the Confluent Schema Registry carry a s
 For a Kafka connection the send dialog shows:
 
 - **Key**: the record key. Empty means no key. Records with the same key always go to the same partition.
-- **Key format** and **Value format**: how the key and the body become the bytes of the record.
+- **Key format** and **Value format**: how the key and the body become the bytes of the record. For a new message the dialog starts with the formats the topic's records already have (the majority of its newest 20 records), so a record sent with the defaults looks like the ones the topic's producers write: Schema Registry with the subject those records use, text or hex. The key format changes only when the topic's records carry keys. A topic whose records have plain string keys keeps a text key, even when a `<topic>-key` subject is registered. An empty topic starts with Schema Registry when its `<topic>-value` subject exists. A format you pick yourself is kept, and resends and templates keep their own formats. The connection setting **New record format** changes this behaviour.
   - **Text**: the text in the chosen **Encoding**, like a JMS text or bytes message.
   - **Bytes (hex)**: the text is hex digits (spaces and line breaks are ignored), sent byte for byte. Use it for binary values.
   - **Schema Registry**: the text is JSON, sent as Avro or JSON Schema with the latest schema of the chosen **subject**. The subject list comes from the registry, and `<topic>-value` / `<topic>-key` is filled in by default. JSON that does not fit the schema is refused before anything is sent, and the message names the field, e.g. `eventMetadata.eventId: missing required field`. Sending never registers a schema, that is done only in the Schema Registry view.
@@ -896,6 +900,18 @@ Color-code with labels to avoid mistakes!
 - ⚠️ Deletes all history!
 
 ---
+
+## What's New in v1.6.1
+
+- **Kafka records sent like the topic's own**: the send dialog starts with the key and value format of the topic's records, keys included. The connection setting *New record format* switches to subject naming or to text. See [Sending Records](#sending-records).
+- **Sent messages blink** in the list of their queue or topic, and a sent Kafka record shows its stored format right away.
+- **Fixed**: the arrow keys move through the message list again, and refreshing the list keeps the selection.
+- **Fixed**: the plugin unloads without a restart when it is disabled or updated (for updates from 1.6.1 on).
+- **Changed**: the buttons above the message body look like the IDE's own.
+
+## What's New in v1.6.0
+
+- **Kafka administration like AKHQ**: consumer groups with lag and offset reset, search of a whole topic, topic details and configuration, Schema Registry subjects, batch send, record timestamps, tombstones, JSON export and copy between topics and clusters. Everything new sits in collapsed sections. See [Apache Kafka](#apache-kafka).
 
 ## What's New in v1.5.0
 
